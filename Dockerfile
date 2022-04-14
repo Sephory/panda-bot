@@ -1,7 +1,7 @@
 FROM node
 
 WORKDIR /app
-COPY . .
+COPY ./src .
 
 RUN npm i
 
