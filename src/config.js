@@ -6,7 +6,7 @@ module.exports = {
   options: { debug: process.env.NODE_ENV === 'development' },
   identity: {
     username: process.env.PANDA_USERNAME,
-    password: `oauth:${process.env.PANDA_OATH_TOKEN}`
+    password: `${process.env.PANDA_OATH_TOKEN}`
   },
   channels
 }
