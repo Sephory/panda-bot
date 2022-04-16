@@ -5,4 +5,4 @@ COPY . .
 
 RUN npm i
 
-ENTRYPOINT ["node", "src/index.js"]
+ENTRYPOINT ["node", "index.js"]
