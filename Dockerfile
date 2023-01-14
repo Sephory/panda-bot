@@ -1,11 +1,20 @@
-FROM golang:1.19-alpine
+FROM golang:1.19-alpine AS build
 
 WORKDIR /app
 
 COPY . ./
 
-RUN apk update && apk add build-base ca-certificates && rm -rf /var/cache/apk/*
+RUN apk update && apk add build-base
 
 RUN go mod download
+RUN go build -o panda ./cmd/panda/main.go
 
-ENTRYPOINT ["go", "run", "./cmd/pandabot/main.go", "serve", "--http=0.0.0.0:9000"]
+FROM alpine:3.17
+
+WORKDIR /app
+
+RUN apk update && apk add ca-certificates && rm -rf /var/cache/apk/*
+
+COPY --from=build /app/panda ./panda
+
+ENTRYPOINT ["/app/panda", "serve"]
