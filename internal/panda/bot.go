@@ -48,12 +48,13 @@ func (bot *pandaBot) joinAll() {
 	bot.dao.DB().NewQuery("SELECT * FROM channels").All(&channels)
 	for _, channel := range channels {
 		client := bot.clients[channel.Service]
-		bot.join(client, channel.Name)
+		go bot.join(client, channel.Name)
 	}
 }
 
 func (bot *pandaBot) join(client chat.ChatClient, channelName string) {
 	channel := client.JoinChannel(channelName)
+	log.Printf("Joining %s", channel.GetName())
 	for event := range channel.GetEvents() {
 		log.Printf("(%s) %s: %s", channel.GetName(), event.User.DisplayName, event.Message)
 		if event.Message[0] == bot.commandPrefix {
