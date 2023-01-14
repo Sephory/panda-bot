@@ -14,6 +14,7 @@ type twitchChatConnection struct {
 	connection *websocket.Conn
 	username   string
 	messages   chan TwitchMessage
+	queue      chan []byte
 }
 
 func (c *twitchChatConnection) connect() error {
@@ -22,7 +23,9 @@ func (c *twitchChatConnection) connect() error {
 	if connection != nil {
 		c.connection = connection
 		c.messages = make(chan TwitchMessage)
+		c.queue = make(chan []byte)
 		go c.readMessages()
+		go c.writeMessages()
 	}
 	return err
 }
@@ -70,6 +73,13 @@ func (c *twitchChatConnection) readMessages() {
 	}
 }
 
+func (c *twitchChatConnection) writeMessages() {
+	for {
+		message := <- c.queue
+		c.connection.WriteMessage(websocket.TextMessage, message)
+	}
+}
+
 func (c *twitchChatConnection) parseMessages(bytes []byte) []TwitchMessage {
 	messageStrings := strings.Split(string(bytes), "\r\n")
 	messages := []TwitchMessage{}
@@ -82,9 +92,8 @@ func (c *twitchChatConnection) parseMessages(bytes []byte) []TwitchMessage {
 	return messages
 }
 
-func (c *twitchChatConnection) send(command string, params ...string) error {
+func (c *twitchChatConnection) send(command string, params ...string) {
 	message := []byte(command + " ")
 	message = append(message, strings.Join(params, " ")...)
-	err := c.connection.WriteMessage(websocket.TextMessage, message)
-	return err
+	c.queue <- message
 }

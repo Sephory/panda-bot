@@ -1,4 +1,4 @@
-package data
+package database
 
 type Channel struct {
 	Id string

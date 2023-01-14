@@ -1,4 +1,4 @@
-package commands
+package panda
 
 import (
 	"strings"
@@ -26,7 +26,7 @@ type Command struct {
 	Event       chat.ChatEvent
 }
 
-func New(event chat.ChatEvent) Command {
+func NewCommand(event chat.ChatEvent) Command {
 	commandText := strings.Split(event.Message[1:], " ")
 	command := Command{
 		CommandType: Unknown,
