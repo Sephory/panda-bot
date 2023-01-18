@@ -35,20 +35,20 @@ func newBot(config Config) *pandaBot {
 
 func (bot *pandaBot) start(dao *daos.Dao) {
 	bot.database = database.New(dao)
-	bot.joinAll()
+	go bot.joinSaved()
 }
 
-func (bot *pandaBot) joinAll() {
+func (bot *pandaBot) joinSaved() {
 	channels := bot.database.GetAllChannels()
 	for _, channel := range channels {
-		client := bot.clients[channel.Service]
-		go bot.join(client, channel.Name)
+		go bot.join(channel.Service, channel.Name)
 	}
 }
 
-func (bot *pandaBot) join(client chat.ChatClient, channelName string) {
+func (bot *pandaBot) join(serviceName string, channelName string) {
+	client := bot.clients[serviceName]
 	channel := client.JoinChannel(channelName)
-	log.Printf("Joining %s", channel.GetName())
+	log.Printf("Joined %s channel %s", serviceName, channelName)
 	for event := range channel.GetEvents() {
 		log.Printf("(%s) %s: %s", channel.GetName(), event.User.DisplayName, event.Message)
 		if event.Message[0] == bot.commandPrefix {
@@ -56,6 +56,22 @@ func (bot *pandaBot) join(client chat.ChatClient, channelName string) {
 			bot.handleCommand(command, channel)
 		}
 	}
+}
+
+func (bot *pandaBot) leave(serviceName string, channelName string) {
+	client := bot.clients[serviceName]
+	client.LeaveChannel(channelName)
+	log.Printf("Left %s channel %s", serviceName, channelName)
+}
+
+func (bot *pandaBot) onChannelAdded(channelId string) {
+	channel := bot.database.GetChannelById(channelId)
+	go bot.join(channel.Service, channel.Name)
+}
+
+func (bot *pandaBot) onChannelDeleted(channelId string) {
+	channel := bot.database.GetChannelById(channelId)
+	bot.leave(channel.Service, channel.Name)
 }
 
 func (bot *pandaBot) handleCommand(command Command, channel chat.ChatChannel) {

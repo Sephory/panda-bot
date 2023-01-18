@@ -18,4 +18,8 @@ func (db *Database) GetAllChannels() []Channel {
 	return channels
 }
 
-
+func (db *Database) GetChannelById(id string) Channel {
+	channel := &Channel{}
+	db.dao.FindById(channel, id)
+	return *channel
+}
