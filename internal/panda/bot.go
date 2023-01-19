@@ -15,7 +15,7 @@ const (
 )
 
 type pandaBot struct {
-	database *database.Database
+	dao *daos.Dao
 	clients       map[string]chat.ChatClient
 	commandPrefix byte
 }
@@ -34,12 +34,12 @@ func newBot(config Config) *pandaBot {
 }
 
 func (bot *pandaBot) start(dao *daos.Dao) {
-	bot.database = database.New(dao)
-	go bot.joinSaved()
+	bot.dao = dao
+	bot.joinActive()
 }
 
-func (bot *pandaBot) joinSaved() {
-	channels := bot.database.GetAllChannels()
+func (bot *pandaBot) joinActive() {
+	channels := database.GetJoinedChannels(bot.dao)
 	for _, channel := range channels {
 		go bot.join(channel.Service, channel.Name)
 	}
@@ -56,21 +56,25 @@ func (bot *pandaBot) join(serviceName string, channelName string) {
 			bot.handleCommand(command, channel)
 		}
 	}
+	log.Printf("Left %s channel %s", serviceName, channelName)
 }
 
 func (bot *pandaBot) leave(serviceName string, channelName string) {
 	client := bot.clients[serviceName]
 	client.LeaveChannel(channelName)
-	log.Printf("Left %s channel %s", serviceName, channelName)
 }
 
-func (bot *pandaBot) onChannelAdded(channelId string) {
-	channel := bot.database.GetChannelById(channelId)
-	go bot.join(channel.Service, channel.Name)
+func (bot *pandaBot) onChannelSaved(channelId string) {
+	channel := database.FindChannelById(bot.dao, channelId)
+	if (channel.IsJoined) {
+		go bot.join(channel.Service, channel.Name)
+	} else {
+		bot.leave(channel.Service, channel.Name)
+	}
 }
 
 func (bot *pandaBot) onChannelDeleted(channelId string) {
-	channel := bot.database.GetChannelById(channelId)
+	channel := database.FindChannelById(bot.dao, channelId)
 	bot.leave(channel.Service, channel.Name)
 }
 
@@ -81,6 +85,8 @@ func (bot *pandaBot) handleCommand(command Command, channel chat.ChatChannel) {
 		response = fmt.Sprintf("Hello, %s!", command.Event.User.DisplayName)
 	case RollDice:
 		response = rollDice(command)
+	default:
+		response = getCustomResponse(bot.dao, channel.GetName(), command)
 	}
 	if (response != "") {
 		log.Printf("SEND (%s): %s", channel.GetName(), response)

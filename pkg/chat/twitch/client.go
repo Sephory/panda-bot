@@ -56,6 +56,9 @@ func (c *TwitchClient) JoinChannel(channelName string) chat.ChatChannel {
 }
 
 func (c *TwitchClient) LeaveChannel(channelName string) {
+	if c.channels[channelName] == nil {
+		return
+	}
 	c.connection.leaveChannel(channelName)
 	close(c.channels[channelName].events)
 	delete(c.channels, channelName)
