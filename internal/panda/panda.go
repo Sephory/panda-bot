@@ -6,34 +6,28 @@ import (
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 	"github.com/sephory/panda-bot/internal/database"
 	_ "github.com/sephory/panda-bot/migrations"
-	"github.com/sephory/panda-bot/pkg/chat/twitch"
 )
 
-type Config struct {
-	CommandPrefix string `yaml:"command_prefix"`
-	Twitch        twitch.TwitchClientConfiguration
-}
-
-type App struct {
-	bot        *pandaBot
+type Panda struct {
+	bot        *Bot
 	pocketbase *pocketbase.PocketBase
 }
 
-func New(config Config) *App {
-	return &App{
-		bot:        newBot(config),
-		pocketbase: pocketbase.New(),
+func New(bot *Bot, pocketbase *pocketbase.PocketBase) *Panda {
+	return &Panda{
+		bot:        bot,
+		pocketbase: pocketbase,
 	}
 
 }
 
-func (app *App) Start() error {
+func (app *Panda) Start() error {
 	migratecmd.MustRegister(app.pocketbase, app.pocketbase.RootCmd, &migratecmd.Options{
 		Automigrate: true,
 	})
 
 	app.pocketbase.OnAfterBootstrap().Add(func(e *core.BootstrapEvent) error {
-		app.bot.start(e.App.Dao())
+		app.bot.Start()
 		return nil
 	})
 

@@ -3,7 +3,6 @@ package twitch
 import (
 	"errors"
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/sephory/panda-bot/pkg/chat"
@@ -21,19 +20,19 @@ type TwitchClientConfiguration struct {
 var _ chat.ChatClient = &TwitchClient{}
 
 type TwitchClient struct {
-	config          TwitchClientConfiguration
+	config          *TwitchClientConfiguration
 	chatConnection  *twitchChatConnection
 	eventConnection *twitchEventConnection
 	api             *twitchApi
 	channels        map[string]*TwitchChatChannel
 }
 
-func NewTwitchClient(config TwitchClientConfiguration) *TwitchClient {
+func New(config *TwitchClientConfiguration) *TwitchClient {
 	client := TwitchClient{
 		config:          config,
 		chatConnection:  &twitchChatConnection{},
 		eventConnection: &twitchEventConnection{},
-		api:             &twitchApi{httpClient: http.DefaultClient, config: &config},
+		api:             newTwitchApi(config.ClientId, config.Token),
 		channels:        map[string]*TwitchChatChannel{},
 	}
 	return &client
@@ -78,6 +77,10 @@ func (c *TwitchClient) LeaveChannel(channelName string) {
 	c.chatConnection.leaveChannel(channelName)
 	close(c.channels[channelName].events)
 	delete(c.channels, channelName)
+}
+
+func (c *TwitchClient) GetName() string {
+	return "Twitch"
 }
 
 func (c *TwitchClient) awaitChatAuthentication() error {

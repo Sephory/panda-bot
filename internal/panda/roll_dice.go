@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func rollDice(command Command) string {
+func (bot *Bot) rollDice(command Command) string {
 	diceCount := 1
 	diceSides := 20
 	if len(command.Params) > 0 {

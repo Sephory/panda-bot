@@ -24,17 +24,17 @@ func channelQuery(dao *daos.Dao) *dbx.SelectQuery {
 	return dao.ModelQuery(&Channel{})
 }
 
-func GetJoinedChannels(dao *daos.Dao) []*Channel {
+func (d *Database) GetJoinedChannels() []*Channel {
 	channels := []*Channel{}
-	channelQuery(dao).
+	channelQuery(d.dao).
 		Where(dbx.HashExp{"is_joined": true}).
 		All(&channels)
 	return channels
 }
 
-func FindChannelById(dao *daos.Dao, id string) *Channel {
+func (d *Database) FindChannelById(id string) *Channel {
 	channel := &Channel{}
-	channelQuery(dao).
+	channelQuery(d.dao).
 		Where(dbx.HashExp{"id": id}).
 		Limit(1).
 		One(channel)

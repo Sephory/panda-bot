@@ -12,9 +12,8 @@ const twitch_chat_host = "irc-ws.chat.twitch.tv:443"
 
 type twitchChatConnection struct {
 	connection *websocket.Conn
-	username   string
 	messages   chan TwitchMessage
-	queue      chan []byte
+	sendQueue  chan []byte
 }
 
 func (c *twitchChatConnection) connect() error {
@@ -23,7 +22,7 @@ func (c *twitchChatConnection) connect() error {
 	if connection != nil {
 		c.connection = connection
 		c.messages = make(chan TwitchMessage)
-		c.queue = make(chan []byte)
+		c.sendQueue = make(chan []byte)
 		go c.readMessages()
 		go c.writeMessages()
 	}
@@ -35,7 +34,6 @@ func (c *twitchChatConnection) disconnect() {
 }
 
 func (c *twitchChatConnection) authenticate(token, username string) {
-	c.username = username
 	c.send("CAP", "REQ", ":twitch.tv/membership twitch.tv/tags twitch.tv/commands")
 	c.send("PASS", fmt.Sprintf("oauth:%s", token))
 	c.send("NICK", username)
@@ -56,7 +54,7 @@ func (c *twitchChatConnection) message(channel, message string) {
 func (c *twitchChatConnection) send(command string, params ...string) {
 	message := []byte(command + " ")
 	message = append(message, strings.Join(params, " ")...)
-	c.queue <- message
+	c.sendQueue <- message
 }
 
 func (c *twitchChatConnection) readMessages() {
@@ -81,7 +79,7 @@ func (c *twitchChatConnection) readMessages() {
 
 func (c *twitchChatConnection) writeMessages() {
 	for {
-		message := <-c.queue
+		message := <-c.sendQueue
 		c.connection.WriteMessage(websocket.TextMessage, message)
 	}
 }

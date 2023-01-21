@@ -5,6 +5,7 @@ type ChatClient interface {
 	Disconnect()
 	JoinChannel(channelName string) ChatChannel
 	LeaveChannel(channelName string)
+	GetName() string
 }
 
 type ChatChannel interface {

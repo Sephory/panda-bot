@@ -4,51 +4,43 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/pocketbase/pocketbase/daos"
 	"github.com/sephory/panda-bot/internal/database"
 	"github.com/sephory/panda-bot/pkg/chat"
-	"github.com/sephory/panda-bot/pkg/chat/twitch"
 )
 
-const (
-	CLIENT_TWITCH = "Twitch"
-)
-
-type pandaBot struct {
-	dao           *daos.Dao
-	clients       map[string]chat.ChatClient
-	commandPrefix byte
+type Bot struct {
+	database *database.Database
+	clients  map[string]chat.ChatClient
 }
 
-func newBot(config Config) *pandaBot {
-	twitchClient := twitch.NewTwitchClient(config.Twitch)
-	err := twitchClient.Connect()
-	if err != nil {
-		panic(err)
+func NewBot(database *database.Database, clients ...chat.ChatClient) *Bot {
+	clientMap := map[string]chat.ChatClient{}
+	for _, client := range clients {
+		err := client.Connect()
+		if err != nil {
+			panic(err)
+		}
+		clientMap[client.GetName()] = client
 	}
 
-	clients := map[string]chat.ChatClient{
-		CLIENT_TWITCH: twitchClient,
-	}
-	return &pandaBot{
-		clients:       clients,
-		commandPrefix: config.CommandPrefix[0],
+	return &Bot{
+		database: database,
+		clients:  clientMap,
 	}
 }
 
-func (bot *pandaBot) start(dao *daos.Dao) {
-	bot.dao = dao
+func (bot *Bot) Start() {
 	bot.joinActive()
 }
 
-func (bot *pandaBot) joinActive() {
-	channels := database.GetJoinedChannels(bot.dao)
+func (bot *Bot) joinActive() {
+	channels := bot.database.GetJoinedChannels()
 	for _, channel := range channels {
-		go bot.join(channel.Service, channel.Name)
+		go bot.Join(channel.Service, channel.Name)
 	}
 }
 
-func (bot *pandaBot) join(serviceName string, channelName string) {
+func (bot *Bot) Join(serviceName string, channelName string) {
 	client := bot.clients[serviceName]
 	channel := client.JoinChannel(channelName)
 	log.Printf("Joined %s channel %s", serviceName, channelName)
@@ -56,7 +48,7 @@ func (bot *pandaBot) join(serviceName string, channelName string) {
 		switch event := e.(type) {
 		case chat.Message:
 			log.Printf("(%s) %s: %s", channel.GetName(), event.User.DisplayName, event.Message)
-			if event.Message[0] == bot.commandPrefix {
+			if event.Message[0] == '!' {
 				command := NewCommand(event)
 				bot.handleCommand(command, channel)
 			}
@@ -68,34 +60,34 @@ func (bot *pandaBot) join(serviceName string, channelName string) {
 	log.Printf("Left %s channel %s", serviceName, channelName)
 }
 
-func (bot *pandaBot) leave(serviceName string, channelName string) {
+func (bot *Bot) Leave(serviceName string, channelName string) {
 	client := bot.clients[serviceName]
 	client.LeaveChannel(channelName)
 }
 
-func (bot *pandaBot) onChannelSaved(channelId string) {
-	channel := database.FindChannelById(bot.dao, channelId)
+func (bot *Bot) onChannelSaved(channelId string) {
+	channel := bot.database.FindChannelById(channelId)
 	if channel.IsJoined {
-		go bot.join(channel.Service, channel.Name)
+		go bot.Join(channel.Service, channel.Name)
 	} else {
-		bot.leave(channel.Service, channel.Name)
+		bot.Leave(channel.Service, channel.Name)
 	}
 }
 
-func (bot *pandaBot) onChannelDeleted(channelId string) {
-	channel := database.FindChannelById(bot.dao, channelId)
-	bot.leave(channel.Service, channel.Name)
+func (bot *Bot) onChannelDeleted(channelId string) {
+	channel := bot.database.FindChannelById(channelId)
+	bot.Leave(channel.Service, channel.Name)
 }
 
-func (bot *pandaBot) handleCommand(command Command, channel chat.ChatChannel) {
+func (bot *Bot) handleCommand(command Command, channel chat.ChatChannel) {
 	var response string
 	switch command.CommandType {
 	case HelloWorld:
 		response = fmt.Sprintf("Hello, %s!", command.Event.User.DisplayName)
 	case RollDice:
-		response = rollDice(command)
+		response = bot.rollDice(command)
 	default:
-		response = getCustomResponse(bot.dao, channel.GetName(), command)
+		response = bot.getCustomResponse(channel.GetName(), command)
 	}
 	if response != "" {
 		log.Printf("SEND (%s): %s", channel.GetName(), response)

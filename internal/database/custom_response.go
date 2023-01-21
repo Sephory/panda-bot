@@ -25,9 +25,9 @@ func customResponseQuery(dao *daos.Dao) *dbx.SelectQuery {
 	return dao.ModelQuery(&CustomResponse{})
 }
 
-func GetCustomResponseForChannel(dao *daos.Dao, channelName string, commandText string) *CustomResponse {
+func (d *Database) GetCustomResponseForChannel(channelName string, commandText string) *CustomResponse {
 	response := &CustomResponse{}
-	customResponseQuery(dao).
+	customResponseQuery(d.dao).
 		Join("INNER JOIN", TABLE_CHANNELS, dbx.NewExp("channels.user_id = custom_responses.user_id")).
 		Where(dbx.HashExp{
 			"channels.name":            channelName,
