@@ -32,26 +32,26 @@ func (app *App) Start() error {
 		Automigrate: true,
 	})
 
-	app.pocketbase.OnAfterBootstrap().Add(func (e *core.BootstrapEvent) error {
+	app.pocketbase.OnAfterBootstrap().Add(func(e *core.BootstrapEvent) error {
 		app.bot.start(e.App.Dao())
 		return nil
 	})
 
-	app.pocketbase.OnModelAfterCreate().Add(func (e *core.ModelEvent) error {
+	app.pocketbase.OnModelAfterCreate().Add(func(e *core.ModelEvent) error {
 		if e.Model.TableName() == database.TABLE_CHANNELS {
 			app.bot.onChannelSaved(e.Model.GetId())
 		}
 		return nil
 	})
 
-	app.pocketbase.OnModelAfterUpdate().Add(func (e *core.ModelEvent) error {
+	app.pocketbase.OnModelAfterUpdate().Add(func(e *core.ModelEvent) error {
 		if e.Model.TableName() == database.TABLE_CHANNELS {
 			app.bot.onChannelSaved(e.Model.GetId())
 		}
 		return nil
 	})
 
-	app.pocketbase.OnModelBeforeDelete().Add(func (e *core.ModelEvent) error {
+	app.pocketbase.OnModelBeforeDelete().Add(func(e *core.ModelEvent) error {
 		if e.Model.TableName() == database.TABLE_CHANNELS {
 			app.bot.onChannelDeleted(e.Model.GetId())
 		}

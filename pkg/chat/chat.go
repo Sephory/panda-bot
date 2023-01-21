@@ -9,13 +9,17 @@ type ChatClient interface {
 
 type ChatChannel interface {
 	GetName() string
-	GetEvents() chan ChatEvent
+	GetEvents() chan interface{}
 	SendMessage(message string)
 }
 
-type ChatEvent struct {
-	User UserInfo
+type Message struct {
+	User    UserInfo
 	Message string
+}
+
+type UserJoin struct {
+	User UserInfo
 }
 
 type UserInfo struct {
@@ -24,4 +28,3 @@ type UserInfo struct {
 	IsMod        bool
 	IsSubscriber bool
 }
-

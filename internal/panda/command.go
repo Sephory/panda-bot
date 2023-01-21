@@ -15,18 +15,18 @@ const (
 )
 
 var command_type_map = map[string]CommandType{
-	"hello":    HelloWorld,
-	"roll": RollDice,
+	"hello": HelloWorld,
+	"roll":  RollDice,
 }
 
 type Command struct {
 	CommandType CommandType
 	CommandText string
 	Params      []string
-	Event       chat.ChatEvent
+	Event       chat.Message
 }
 
-func NewCommand(event chat.ChatEvent) Command {
+func NewCommand(event chat.Message) Command {
 	commandText := strings.Split(event.Message[1:], " ")
 	command := Command{
 		CommandType: Unknown,

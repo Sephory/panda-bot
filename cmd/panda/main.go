@@ -10,7 +10,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-
 func main() {
 	config := getConfig()
 	panda := panda.New(config)

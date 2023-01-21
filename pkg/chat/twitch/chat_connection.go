@@ -8,7 +8,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const twitch_chat_url = "irc-ws.chat.twitch.tv:443"
+const twitch_chat_host = "irc-ws.chat.twitch.tv:443"
 
 type twitchChatConnection struct {
 	connection *websocket.Conn
@@ -18,7 +18,7 @@ type twitchChatConnection struct {
 }
 
 func (c *twitchChatConnection) connect() error {
-	url := url.URL{Scheme: "wss", Host: twitch_chat_url}
+	url := url.URL{Scheme: "wss", Host: twitch_chat_host}
 	connection, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
 	if connection != nil {
 		c.connection = connection
@@ -49,8 +49,14 @@ func (c *twitchChatConnection) leaveChannel(channel string) {
 	c.send("PART", "#"+channel)
 }
 
-func (c *twitchChatConnection) sendMessage(channel, message string) {
+func (c *twitchChatConnection) message(channel, message string) {
 	c.send("PRIVMSG", "#"+channel, ":"+message)
+}
+
+func (c *twitchChatConnection) send(command string, params ...string) {
+	message := []byte(command + " ")
+	message = append(message, strings.Join(params, " ")...)
+	c.queue <- message
 }
 
 func (c *twitchChatConnection) readMessages() {
@@ -62,7 +68,7 @@ func (c *twitchChatConnection) readMessages() {
 				break
 			}
 		}
-		messages := c.parseMessages(ircMessages)
+		messages := parseMessages(ircMessages)
 		for _, m := range messages {
 			if m.MessageType == Ping {
 				c.send("PONG", m.Params...)
@@ -75,12 +81,12 @@ func (c *twitchChatConnection) readMessages() {
 
 func (c *twitchChatConnection) writeMessages() {
 	for {
-		message := <- c.queue
+		message := <-c.queue
 		c.connection.WriteMessage(websocket.TextMessage, message)
 	}
 }
 
-func (c *twitchChatConnection) parseMessages(bytes []byte) []TwitchMessage {
+func parseMessages(bytes []byte) []TwitchMessage {
 	messageStrings := strings.Split(string(bytes), "\r\n")
 	messages := []TwitchMessage{}
 	for _, s := range messageStrings {
@@ -90,10 +96,4 @@ func (c *twitchChatConnection) parseMessages(bytes []byte) []TwitchMessage {
 		messages = append(messages, NewChatMessage(s))
 	}
 	return messages
-}
-
-func (c *twitchChatConnection) send(command string, params ...string) {
-	message := []byte(command + " ")
-	message = append(message, strings.Join(params, " ")...)
-	c.queue <- message
 }
