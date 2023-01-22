@@ -1,26 +1,33 @@
 package twitch
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
+
+	"github.com/sephory/panda-bot/pkg/chat"
 )
 
-const twitch_event_subscription_endpoint = "https://api.twitch.tv/helix/eventsub/subscriptions"
-const twitch_users_endpoint = "https://api.twitch.tv/helix/users"
+const twitch_event_subscription_endpoint = "eventsub/subscriptions"
+const twitch_users_endpoint = "users"
 
 type twitchApi struct {
-	clientId      string
-	token         string
-	httpClient    *http.Client
+	client        *chat.ApiClient
 	subscriptions map[string][]*eventSubscription
 }
 
 func newTwitchApi(clientId string, token string) *twitchApi {
+	baseUrl := "https://api.twitch.tv/helix/"
+	header := http.Header{
+		"Content-Type":  {"application/json"},
+		"Authorization": {"Bearer " + token},
+		"Client-Id":     {clientId},
+	}
+	client, err := chat.NewApiClient(baseUrl, header)
+	if err != nil {
+		panic(err)
+	}
 	return &twitchApi{
-		clientId:      clientId,
-		token:         token,
-		httpClient:    http.DefaultClient,
+		client:        client,
 		subscriptions: map[string][]*eventSubscription{},
 	}
 }
@@ -35,13 +42,17 @@ func (api *twitchApi) subscribe(channelName string, sessionId string) {
 func (api *twitchApi) unsubscribe(channelName string) {
 	for _, subscription := range api.subscriptions[channelName] {
 		url := twitch_event_subscription_endpoint + "?id=" + subscription.Id
-		api.delete(url)
+		api.client.Delete(url, nil)
 	}
 }
 
 func (api *twitchApi) getUserId(channelName string) *twitchUser {
-	url := twitch_users_endpoint + "?login=" + channelName
-	response, err := api.get(url)
+	response, err := api.client.Get(
+		twitch_users_endpoint,
+		map[string]string{
+			"login": channelName,
+		},
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +78,7 @@ func (api *twitchApi) createSubscription(channelName string, subscriptionType st
 		},
 	}
 
-	response, err := api.post(twitch_event_subscription_endpoint, request)
+	response, err := api.client.Post(twitch_event_subscription_endpoint, nil, request)
 	if err != nil {
 		return err
 	}
@@ -78,46 +89,6 @@ func (api *twitchApi) createSubscription(channelName string, subscriptionType st
 	}
 	api.subscriptions[channelName] = append(api.subscriptions[channelName], subscribeResponse.Data[0])
 	return nil
-}
-
-func (api *twitchApi) get(url string) (*http.Response, error) {
-	request, err := api.newRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	return api.httpClient.Do(request)
-}
-
-func (api *twitchApi) post(url string, body interface{}) (*http.Response, error) {
-	request, err := api.newRequest("POST", url, body)
-	if err != nil {
-		return nil, err
-	}
-
-	return api.httpClient.Do(request)
-}
-
-func (api *twitchApi) delete(url string) (*http.Response, error) {
-	request, err := api.newRequest("DELETE", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return api.httpClient.Do(request)
-}
-
-func (api *twitchApi) newRequest(method string, url string, body interface{}) (*http.Request, error) {
-	jsonBody, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	request, err := http.NewRequest(method, url, bytes.NewBuffer(jsonBody))
-	request.Header = http.Header{
-		"Content-Type":  {"application/json"},
-		"Authorization": {"Bearer " + api.token},
-		"Client-Id":     {api.clientId},
-	}
-	return request, nil
 }
 
 type twitchUser struct {

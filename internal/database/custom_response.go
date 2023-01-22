@@ -8,6 +8,8 @@ import (
 
 const TABLE_CUSTOM_RESPONSES = "custom_responses"
 
+var _ models.Model = &CustomResponse{}
+
 type CustomResponse struct {
 	models.BaseModel
 	UserId      string

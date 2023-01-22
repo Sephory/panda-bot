@@ -11,12 +11,14 @@ import (
 type Panda struct {
 	bot        *Bot
 	pocketbase *pocketbase.PocketBase
+	database   *database.Database
 }
 
-func New(bot *Bot, pocketbase *pocketbase.PocketBase) *Panda {
+func New(bot *Bot, pocketbase *pocketbase.PocketBase, database *database.Database) *Panda {
 	return &Panda{
 		bot:        bot,
 		pocketbase: pocketbase,
+		database:   database,
 	}
 
 }
@@ -33,7 +35,9 @@ func (app *Panda) Start() error {
 
 	app.pocketbase.OnModelAfterCreate().Add(func(e *core.ModelEvent) error {
 		if e.Model.TableName() == database.TABLE_CHANNELS {
-			app.bot.onChannelSaved(e.Model.GetId())
+			channelId := e.Model.GetId()
+			app.database.SetDefaultChannelCommands(channelId)
+			app.bot.onChannelSaved(channelId)
 		}
 		return nil
 	})

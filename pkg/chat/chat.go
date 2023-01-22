@@ -1,8 +1,6 @@
 package chat
 
 type ChatClient interface {
-	Connect() error
-	Disconnect()
 	JoinChannel(channelName string) ChatChannel
 	LeaveChannel(channelName string)
 	GetName() string

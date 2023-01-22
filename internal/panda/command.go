@@ -12,11 +12,17 @@ const (
 	Unknown CommandType = iota
 	HelloWorld
 	RollDice
+	Poll
+	Vote
+	Results
 )
 
 var command_type_map = map[string]CommandType{
-	"hello": HelloWorld,
-	"roll":  RollDice,
+	"hello":   HelloWorld,
+	"roll":    RollDice,
+	"poll":    Poll,
+	"vote":    Vote,
+	"results": Results,
 }
 
 type Command struct {

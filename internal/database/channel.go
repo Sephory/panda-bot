@@ -8,12 +8,14 @@ import (
 
 const TABLE_CHANNELS = "channels"
 
+var _ models.Model = &Channel{}
+
 type Channel struct {
 	models.BaseModel
-	UserId   string
-	Service  string
-	Name     string
-	IsJoined bool
+	UserId    string
+	ServiceId string
+	Name      string
+	IsJoined  bool
 }
 
 func (c *Channel) TableName() string {

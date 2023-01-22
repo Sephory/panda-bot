@@ -6,11 +6,13 @@ import (
 
 	"github.com/sephory/panda-bot/pkg/chat"
 	"github.com/sephory/panda-bot/pkg/chat/twitch"
+	"github.com/sephory/panda-bot/pkg/chat/youtube"
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Twitch *twitch.TwitchClientConfiguration
+	Twitch  *twitch.TwitchClientConfiguration
+	YouTube *youtube.YouTubeClientConfiguration
 }
 
 func main() {
@@ -40,5 +42,6 @@ func ReadConfig() *Config {
 func GetChatClients(config *Config) []chat.ChatClient {
 	return []chat.ChatClient{
 		twitch.New(config.Twitch),
+		youtube.New(config.YouTube),
 	}
 }

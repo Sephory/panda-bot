@@ -20,6 +20,6 @@ func InitializePanda() (*panda.Panda, error) {
 	config := ReadConfig()
 	v := GetChatClients(config)
 	bot := panda.NewBot(databaseDatabase, v...)
-	pandaPanda := panda.New(bot, pocketBase)
+	pandaPanda := panda.New(bot, pocketBase, databaseDatabase)
 	return pandaPanda, nil
 }
