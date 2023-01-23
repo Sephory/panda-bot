@@ -87,6 +87,9 @@ func (api *twitchApi) createSubscription(channelName string, subscriptionType st
 	if err != nil {
 		return err
 	}
+	if len(subscribeResponse.Data) == 0 {
+		return nil
+	}
 	api.subscriptions[channelName] = append(api.subscriptions[channelName], subscribeResponse.Data[0])
 	return nil
 }
