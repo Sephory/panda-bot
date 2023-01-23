@@ -16,6 +16,9 @@ var payloadHandlers = map[string]func() interface{}{
 }
 
 func (e *twitchEvent) getPayload() interface{} {
+	if e.Payload == nil {
+		return nil
+	}
 	var payload interface{} = &map[string]interface{}{}
 	handler := payloadHandlers[e.Metadata.MessageType]
 	if handler != nil {
