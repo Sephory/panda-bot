@@ -29,10 +29,18 @@ func (api *youTubeApi) findChannel(channelName string) *yt.Channel {
 	if err != nil {
 		panic(err)
 	}
+	if len(channels.Items) == 0 {
+		channels, err = api.client.Channels.List([]string{"id"}).
+			Id(channelName).
+			Do()
+	}
+	if len(channels.Items) == 0 {
+		return nil
+	}
 	return channels.Items[0]
 }
 
-func (api *youTubeApi) findStreams(channelId string) {
+func (api *youTubeApi) getLiveChatIds(channelId string) []string {
 	results, err := api.client.Search.List([]string{"snippet"}).
 		ChannelId(channelId).
 		Type("video").
@@ -41,8 +49,38 @@ func (api *youTubeApi) findStreams(channelId string) {
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("Found %v broadcasts for %s", len(results.Items), channelId)
+	var videos *yt.VideoListResponse
 	for _, r := range results.Items {
-		log.Printf("Live VideoId: %s", r.Id.VideoId)
+		videos, err = api.client.Videos.List([]string{"liveStreamingDetails"}).
+			Id(r.Id.VideoId).
+			Do()
+		if err != nil {
+			panic(err)
+		}
 	}
+	if videos == nil || len(videos.Items) == 0 {
+		return nil
+	}
+	log.Printf("Found %v videos for %s", len(videos.Items), channelId)
+	liveChatIds := []string{}
+	for _, v := range videos.Items {
+		liveChatIds = append(liveChatIds, v.LiveStreamingDetails.ActiveLiveChatId)
+	}
+	return liveChatIds
+}
+
+func (api *youTubeApi) getChat(liveChatId string, nextPageToken string) *yt.LiveChatMessageListResponse {
+	messageRequest := api.client.LiveChatMessages.List(liveChatId, []string{"snippet", "authorDetails"})
+	if nextPageToken != "" {
+		messageRequest = messageRequest.PageToken(nextPageToken)
+	}
+	messages, err := messageRequest.Do()
+	if err != nil {
+		panic(err)
+	}
+	return messages
+}
+
+func (api *youTubeApi) sendChat(message string, liveChatId string) {
+
 }

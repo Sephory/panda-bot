@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"log"
 
+	"github.com/sephory/panda-bot/internal/panda"
 	"github.com/sephory/panda-bot/pkg/chat"
 	"github.com/sephory/panda-bot/pkg/chat/twitch"
 	"github.com/sephory/panda-bot/pkg/chat/youtube"
@@ -11,6 +12,7 @@ import (
 )
 
 type Config struct {
+	Bot     *panda.BotConfig
 	Twitch  *twitch.TwitchClientConfiguration
 	YouTube *youtube.YouTubeClientConfiguration
 }
@@ -37,6 +39,10 @@ func ReadConfig() *Config {
 		log.Fatal("Could not read configuration")
 	}
 	return config
+}
+
+func GetBotConfig(config *Config) *panda.BotConfig {
+	return config.Bot
 }
 
 func GetChatClients(config *Config) []chat.ChatClient {

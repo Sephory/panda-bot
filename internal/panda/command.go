@@ -29,15 +29,15 @@ type Command struct {
 	CommandType CommandType
 	CommandText string
 	Params      []string
-	Event       chat.Message
+	Message       chat.Message
 }
 
 func NewCommand(event chat.Message) Command {
-	commandText := strings.Split(event.Message[1:], " ")
+	commandText := strings.Split(event.Text[1:], " ")
 	command := Command{
 		CommandType: Unknown,
 		CommandText: strings.ToLower(commandText[0]),
-		Event:       event,
+		Message:       event,
 	}
 
 	if val, ok := command_type_map[command.CommandText]; ok {

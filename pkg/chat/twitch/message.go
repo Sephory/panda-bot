@@ -82,7 +82,7 @@ func (m *TwitchMessage) toChatEvent() (interface{}, error) {
 	case ChatMessage:
 		return chat.Message{
 			User:    m.toUserInfo(),
-			Message: m.Params[1],
+			Text: m.Params[1],
 		}, nil
 	case Join:
 		return chat.UserJoin{

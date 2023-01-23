@@ -2,10 +2,13 @@ package panda
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/sephory/panda-bot/internal/database"
 )
+
+const APP_ROUTE_POLL_RESULTS = "polls/:pollId"
 
 func (bot *Bot) poll(command Command, channel *database.Channel) string {
 	if len(command.Params) == 0 {
@@ -112,10 +115,10 @@ func (bot *Bot) vote(command Command, channel *database.Channel) string {
 		voteText = strings.Join(command.Params, " ")
 		poll = polls[0]
 	}
-	voter := command.Event.User.Username
+	voter := command.Message.User.Username
 
 	if bot.db.DidVoterVote(poll.Id, channel.Id, voter) {
-		return fmt.Sprintf("You already voted, %s!", command.Event.User.DisplayName)
+		return fmt.Sprintf("You already voted, %s!", command.Message.User.DisplayName)
 	}
 
 	options := bot.db.GetPollOptionsForPoll(poll.Id)
@@ -149,7 +152,7 @@ func (bot *Bot) vote(command Command, channel *database.Channel) string {
 
 	bot.db.SavePollVote(vote)
 
-	return fmt.Sprintf("Your vote has been counted, %s!", command.Event.User.DisplayName)
+	return fmt.Sprintf("Your vote has been counted, %s!", command.Message.User.DisplayName)
 }
 
 func (bot *Bot) results(command Command, channel *database.Channel) string {
@@ -170,6 +173,12 @@ func (bot *Bot) results(command Command, channel *database.Channel) string {
 	resultText := []string{}
 	for _, r := range results {
 		resultText = append(resultText, fmt.Sprintf("%s: %v", r.PollOptionText, r.Votes))
+	}
+
+	pollUrl, err := url.Parse(bot.config.AppUrl)
+	if err == nil {
+		pollUrl = pollUrl.JoinPath(strings.Replace(APP_ROUTE_POLL_RESULTS, ":pollId", poll.Id, 1))
+		return fmt.Sprintf("Results for: %s  %s", poll.Prompt, pollUrl)
 	}
 
 	return fmt.Sprintf("Results for: %s  %s", poll.Prompt, strings.Join(resultText, ", "))

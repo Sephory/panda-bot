@@ -6,9 +6,9 @@ import (
 )
 
 type PollResult struct {
-	PollOptionId   string
-	PollOptionText string
-	Votes          int
+	PollOptionId   string `json:"poll_option_id"`
+	PollOptionText string `json:"poll_option_text"`
+	Votes          int    `json:"votes"`
 }
 
 func pollResultQuery(dao *daos.Dao) *dbx.SelectQuery {

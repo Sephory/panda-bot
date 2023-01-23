@@ -8,18 +8,24 @@ import (
 	"github.com/sephory/panda-bot/pkg/chat"
 )
 
+type BotConfig struct {
+	AppUrl string `yaml:"app_url"`
+}
+
 type Bot struct {
+	config  *BotConfig
 	db      *database.Database
 	clients map[string]chat.ChatClient
 }
 
-func NewBot(database *database.Database, clients ...chat.ChatClient) *Bot {
+func NewBot(config *BotConfig, database *database.Database, clients ...chat.ChatClient) *Bot {
 	clientMap := map[string]chat.ChatClient{}
 	for _, client := range clients {
 		clientMap[client.GetName()] = client
 	}
 
 	return &Bot{
+		config:  config,
 		db:      database,
 		clients: clientMap,
 	}
@@ -40,12 +46,15 @@ func (bot *Bot) Join(channel *database.Channel) {
 	service := bot.db.FindServiceById(channel.ServiceId)
 	client := bot.clients[service.Name]
 	chatChannel := client.JoinChannel(channel.Name)
+	if chatChannel == nil {
+		return
+	}
 	log.Printf("Joined %s channel %s", service.Name, channel.Name)
 	for e := range chatChannel.GetEvents() {
 		switch event := e.(type) {
 		case chat.Message:
-			log.Printf("(%s) %s: %s", chatChannel.GetName(), event.User.DisplayName, event.Message)
-			if event.Message[0] == '!' {
+			log.Printf("(%s:%s) %s: %s", service.Name, chatChannel.GetName(), event.User.DisplayName, event.Text)
+			if event.Text[0] == '!' {
 				command := NewCommand(event)
 				bot.handleCommand(command, chatChannel, channel)
 			}
@@ -84,7 +93,7 @@ func (bot *Bot) handleCommand(command Command, chatChannel chat.ChatChannel, cha
 	} else {
 		switch command.CommandType {
 		case HelloWorld:
-			response = fmt.Sprintf("Hello, %s!", command.Event.User.DisplayName)
+			response = fmt.Sprintf("Hello, %s!", command.Message.User.DisplayName)
 		case RollDice:
 			response = bot.rollDice(command)
 		case Poll:
@@ -97,6 +106,6 @@ func (bot *Bot) handleCommand(command Command, chatChannel chat.ChatChannel, cha
 	}
 	if response != "" {
 		log.Printf("SEND (%s): %s", chatChannel.GetName(), response)
-		chatChannel.SendMessage(response)
+		chatChannel.SendMessage(response, command.Message.Options)
 	}
 }

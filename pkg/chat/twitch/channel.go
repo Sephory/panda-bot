@@ -26,6 +26,6 @@ func (c *TwitchChatChannel) GetEvents() chan interface{} {
 	return c.events
 }
 
-func (c *TwitchChatChannel) SendMessage(message string) {
+func (c *TwitchChatChannel) SendMessage(message string, options interface{}) {
 	c.connection.message(c.name, message)
 }

@@ -9,12 +9,13 @@ type ChatClient interface {
 type ChatChannel interface {
 	GetName() string
 	GetEvents() chan interface{}
-	SendMessage(message string)
+	SendMessage(message string, options interface{})
 }
 
 type Message struct {
 	User    UserInfo
-	Message string
+	Text string
+	Options interface{}
 }
 
 type UserJoin struct {

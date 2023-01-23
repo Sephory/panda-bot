@@ -13,6 +13,7 @@ func InitializePanda() (*panda.Panda, error) {
 	wire.Build(
 		ReadConfig,
 		GetChatClients,
+		GetBotConfig,
 		pocketbase.New,
 		panda.New,
 		panda.NewBot,

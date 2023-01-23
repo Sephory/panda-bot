@@ -23,38 +23,26 @@ func New(bot *Bot, pocketbase *pocketbase.PocketBase, database *database.Databas
 
 }
 
-func (app *Panda) Start() error {
-	migratecmd.MustRegister(app.pocketbase, app.pocketbase.RootCmd, &migratecmd.Options{
+func (p *Panda) Start() error {
+	migratecmd.MustRegister(p.pocketbase, p.pocketbase.RootCmd, &migratecmd.Options{
 		Automigrate: true,
 	})
 
-	app.pocketbase.OnAfterBootstrap().Add(func(e *core.BootstrapEvent) error {
-		app.bot.Start()
+	p.pocketbase.OnAfterBootstrap().Add(func(e *core.BootstrapEvent) error {
+		p.bot.Start()
 		return nil
 	})
 
-	app.pocketbase.OnModelAfterCreate().Add(func(e *core.ModelEvent) error {
-		if e.Model.TableName() == database.TABLE_CHANNELS {
-			channelId := e.Model.GetId()
-			app.database.SetDefaultChannelCommands(channelId)
-			app.bot.onChannelSaved(channelId)
-		}
+	p.pocketbase.OnBeforeServe().Add(func (e *core.ServeEvent) error {
+		p.createRoutes(e.Router)
 		return nil
 	})
 
-	app.pocketbase.OnModelAfterUpdate().Add(func(e *core.ModelEvent) error {
-		if e.Model.TableName() == database.TABLE_CHANNELS {
-			app.bot.onChannelSaved(e.Model.GetId())
-		}
-		return nil
-	})
+	p.pocketbase.OnModelAfterCreate().Add(p.onModelAfterCreate)
 
-	app.pocketbase.OnModelBeforeDelete().Add(func(e *core.ModelEvent) error {
-		if e.Model.TableName() == database.TABLE_CHANNELS {
-			app.bot.onChannelDeleted(e.Model.GetId())
-		}
-		return nil
-	})
+	p.pocketbase.OnModelAfterUpdate().Add(p.onModelAfterUpdate)
 
-	return app.pocketbase.Start()
+	p.pocketbase.OnModelBeforeDelete().Add(p.onModelBeforeDelete)
+
+	return p.pocketbase.Start()
 }

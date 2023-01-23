@@ -7,7 +7,7 @@ COPY . ./
 RUN apk update && apk add build-base
 
 RUN go mod download
-RUN go build -o panda ./cmd/panda/main.go
+RUN go build -o panda .
 
 FROM alpine:3.17
 

@@ -24,13 +24,15 @@ func New(config *YouTubeClientConfiguration) *YouTubeClient {
 // JoinChannel implements chat.ChatClient
 func (c *YouTubeClient) JoinChannel(channelName string) chat.ChatChannel {
 	channel := c.api.findChannel(channelName)
-	c.api.findStreams(channel.Id)
-	return NewYouTubeChannel(channelName, c.api)
+	if channel == nil {
+		return nil
+	}
+	return NewYouTubeChannel(channelName, channel.Id, c.api)
 }
 
 // LeaveChannel implements chat.ChatClient
 func (c *YouTubeClient) LeaveChannel(channelName string) {
-	panic("unimplemented")
+	return
 }
 
 // GetName implements chat.ChatClient

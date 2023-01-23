@@ -15,11 +15,12 @@ import (
 // Injectors from wire.go:
 
 func InitializePanda() (*panda.Panda, error) {
+	config := ReadConfig()
+	botConfig := GetBotConfig(config)
 	pocketBase := pocketbase.New()
 	databaseDatabase := database.New(pocketBase)
-	config := ReadConfig()
 	v := GetChatClients(config)
-	bot := panda.NewBot(databaseDatabase, v...)
+	bot := panda.NewBot(botConfig, databaseDatabase, v...)
 	pandaPanda := panda.New(bot, pocketBase, databaseDatabase)
 	return pandaPanda, nil
 }
