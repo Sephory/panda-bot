@@ -15,6 +15,7 @@ const twitch_event_welcome_timeout = 500
 
 type twitchEventConnection struct {
 	connection *websocket.Conn
+	connecting bool
 	events     chan interface{}
 	sessionId  string
 }
@@ -26,6 +27,8 @@ func newTwitchEventConnection() *twitchEventConnection {
 }
 
 func (c *twitchEventConnection) connect() error {
+	c.connecting = true
+	defer func() { c.connecting = false }()
 	url := url.URL{Scheme: "wss", Host: twitch_event_host, Path: twitch_event_path}
 	connection, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
 	if connection != nil {
@@ -77,7 +80,7 @@ func (c *twitchEventConnection) disconnect() {
 }
 
 func (c *twitchEventConnection) isConnected() bool {
-	return c.connection != nil
+	return c.connection != nil || c.connecting
 }
 
 func (c *twitchEventConnection) getSessionId() string {
