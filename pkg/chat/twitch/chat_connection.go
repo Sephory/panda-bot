@@ -89,7 +89,7 @@ func (c *twitchChatConnection) awaitAuthentication(token string, username string
 }
 
 func (c *twitchChatConnection) isConnected() bool {
-	return c.connection != nil || c.connecting
+	return c.connection != nil
 }
 
 func (c *twitchChatConnection) disconnect() {
@@ -106,8 +106,12 @@ func (c *twitchChatConnection) authenticate(token, username string) {
 }
 
 func (c *twitchChatConnection) joinChannel(channelName string) {
-	if !c.isConnected() {
-		c.connect()
+	for !c.isConnected() {
+		if (!c.connecting) {
+			c.connect()
+		} else {
+			time.Sleep(time.Millisecond * 500)
+		}
 	}
 	c.send("JOIN", "#"+channelName)
 }

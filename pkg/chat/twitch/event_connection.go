@@ -80,12 +80,16 @@ func (c *twitchEventConnection) disconnect() {
 }
 
 func (c *twitchEventConnection) isConnected() bool {
-	return c.connection != nil || c.connecting
+	return c.connection != nil
 }
 
 func (c *twitchEventConnection) getSessionId() string {
-	if !c.isConnected() {
-		c.connect()
+	for !c.isConnected() {
+		if (!c.connecting) {
+			c.connect()
+		} else {
+			time.Sleep(time.Millisecond * 500)
+		}
 	}
 	return c.sessionId
 }
