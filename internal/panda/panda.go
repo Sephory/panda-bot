@@ -2,7 +2,6 @@ package panda
 
 import (
 	"github.com/pocketbase/pocketbase"
-	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 	"github.com/sephory/panda-bot/internal/database"
 	_ "github.com/sephory/panda-bot/migrations"
@@ -28,15 +27,7 @@ func (p *Panda) Start() error {
 		Automigrate: true,
 	})
 
-	p.pocketbase.OnAfterBootstrap().Add(func(e *core.BootstrapEvent) error {
-		p.bot.Start()
-		return nil
-	})
-
-	p.pocketbase.OnBeforeServe().Add(func (e *core.ServeEvent) error {
-		p.createRoutes(e.Router)
-		return nil
-	})
+	p.pocketbase.OnBeforeServe().Add(p.onBeforeServe)
 
 	p.pocketbase.OnModelAfterCreate().Add(p.onModelAfterCreate)
 
