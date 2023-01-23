@@ -20,6 +20,7 @@ type queueMessage struct {
 
 type twitchChatConnection struct {
 	connection *websocket.Conn
+	connecting bool
 	token      string
 	username   string
 	messages   chan TwitchMessage
@@ -36,6 +37,9 @@ func newTwitchChatConnection(token string, username string) *twitchChatConnectio
 }
 
 func (c *twitchChatConnection) connect() error {
+	c.connecting = true
+	defer func() { c.connecting = false }()
+
 	url := url.URL{Scheme: "wss", Host: twitch_chat_host}
 	connection, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
 	if connection != nil {
@@ -85,7 +89,7 @@ func (c *twitchChatConnection) awaitAuthentication(token string, username string
 }
 
 func (c *twitchChatConnection) isConnected() bool {
-	return c.connection != nil
+	return c.connection != nil || c.connecting
 }
 
 func (c *twitchChatConnection) disconnect() {
