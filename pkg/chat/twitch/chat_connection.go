@@ -5,119 +5,111 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/apex/log"
 	"github.com/gorilla/websocket"
+	"github.com/sephory/panda-bot/pkg/chat"
 )
 
-const twitch_chat_host = "irc-ws.chat.twitch.tv:443"
+const twitch_chat_url = "wss://irc-ws.chat.twitch.tv"
 const twitch_chat_auth_timeout = 500
 
-type queueMessage struct {
-	messageType int
-	message     []byte
-}
-
 type twitchChatConnection struct {
-	connection *websocket.Conn
-	connecting bool
-	token      string
-	username   string
-	messages   chan TwitchMessage
-	sendQueue  chan queueMessage
+	connection     *chat.WebsocketConnection
+	authenticating sync.Mutex
+	authenticated  bool
+	token          string
+	username       string
+	messages       map[string]chan TwitchMessage
+	log            log.Interface
 }
 
 func newTwitchChatConnection(token string, username string) *twitchChatConnection {
+	chatUrl, _ := url.Parse(twitch_chat_url)
 	return &twitchChatConnection{
-		token:     token,
-		username:  username,
-		messages:  make(chan TwitchMessage),
-		sendQueue: make(chan queueMessage),
+		connection: chat.NewWebsocketConnection(chatUrl),
+		token:      token,
+		username:   username,
+		messages:   make(map[string]chan TwitchMessage),
+		log:        log.WithField("module", "twitch_chat_connection"),
 	}
 }
 
-func (c *twitchChatConnection) connect() error {
-	c.connecting = true
-	defer func() { c.connecting = false }()
-
-	url := url.URL{Scheme: "wss", Host: twitch_chat_host}
-	connection, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
-	if connection != nil {
-		c.connection = connection
-		go c.writeMessages()
-		err = c.awaitAuthentication(c.token, c.username)
-		if err != nil {
-			return err
-		}
-		go c.readMessages()
+func (c *twitchChatConnection) awaitAuthentication() error {
+	c.authenticating.Lock()
+	defer c.authenticating.Unlock()
+	if c.authenticated {
+		return nil
 	}
-	return err
-}
-
-func (c *twitchChatConnection) awaitAuthentication(token string, username string) error {
-	c.authenticate(token, username)
-	auth := make(chan error, 1)
-	go func() {
-		for {
-			_, ircMessages, err := c.connection.ReadMessage()
-			if err != nil {
-				auth <- err
-				return
-			}
-			messages := parseMessages(ircMessages)
-			for _, m := range messages {
-				if m.MessageType == AuthSuccess {
-					auth <- nil
-					return
-				}
-			}
-		}
-	}()
+	authSuccess := c.authenticate()
 	timeout := make(chan error, 1)
 	go func() {
 		time.Sleep(time.Millisecond * twitch_chat_auth_timeout)
 		timeout <- errors.New("Failed to authenticate with Twitch chat")
 	}()
-	for {
-		select {
-		case err := <-auth:
-			return err
-		case err := <-timeout:
-			return err
-		}
+	select {
+	case success := <-authSuccess:
+		c.authenticated = success
+		go c.listen()
+		return nil
+	case err := <-timeout:
+		c.authenticated = false
+		return err
 	}
-}
-
-func (c *twitchChatConnection) isConnected() bool {
-	return c.connection != nil
 }
 
 func (c *twitchChatConnection) disconnect() {
-	c.sendQueue <- queueMessage{
-		messageType: websocket.CloseMessage,
-		message:     websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
-	}
+	c.connection.SendMessage(chat.WebsocketMessage{
+		MessageType: websocket.CloseMessage,
+		Bytes:       websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
+	})
 }
 
-func (c *twitchChatConnection) authenticate(token, username string) {
-	c.send("CAP", "REQ", ":twitch.tv/membership twitch.tv/tags twitch.tv/commands")
-	c.send("PASS", fmt.Sprintf("oauth:%s", token))
-	c.send("NICK", username)
-}
-
-func (c *twitchChatConnection) joinChannel(channelName string) {
-	for !c.isConnected() {
-		if (!c.connecting) {
-			c.connect()
-		} else {
-			time.Sleep(time.Millisecond * 500)
+func (c *twitchChatConnection) authenticate() chan bool {
+	result := make(chan bool, 1)
+	go func() {
+		ircMessages, err := c.connection.GetMessages()
+		if err != nil {
+			result <- false
+			return
 		}
+		for {
+			messages := c.parseTwitchMessages(<-ircMessages)
+			for _, m := range messages {
+				if m.MessageType == AuthSuccess {
+					result <- true
+					return
+				}
+			}
+		}
+	}()
+	c.send("CAP", "REQ", ":twitch.tv/membership twitch.tv/tags twitch.tv/commands")
+	c.send("PASS", fmt.Sprintf("oauth:%s", c.token))
+	c.send("NICK", c.username)
+	return result
+}
+
+func (c *twitchChatConnection) joinChannel(channelName string) chan TwitchMessage {
+	err := c.awaitAuthentication()
+	if err != nil {
+		c.log.Error(err.Error())
+		return nil
 	}
 	c.send("JOIN", "#"+channelName)
+	channelEvents := make(chan TwitchMessage)
+	c.messages[channelName] = channelEvents
+	return channelEvents
 }
 
-func (c *twitchChatConnection) leaveChannel(channel string) {
-	c.send("PART", "#"+channel)
+func (c *twitchChatConnection) leaveChannel(channelName string) {
+	close(c.messages[channelName])
+	delete(c.messages, channelName)
+	c.send("PART", "#"+channelName)
+	if len(c.messages) == 0 {
+		// TODO: disconnect
+	}
 }
 
 func (c *twitchChatConnection) message(channel, message string) {
@@ -127,38 +119,34 @@ func (c *twitchChatConnection) message(channel, message string) {
 func (c *twitchChatConnection) send(command string, params ...string) {
 	message := []byte(command + " ")
 	message = append(message, strings.Join(params, " ")...)
-	c.sendQueue <- queueMessage{messageType: websocket.TextMessage, message: message}
+	c.connection.SendMessage(chat.WebsocketMessage{
+		MessageType: websocket.TextMessage,
+		Bytes:       message,
+	})
 }
 
-func (c *twitchChatConnection) readMessages() {
-	for {
-		_, ircMessages, err := c.connection.ReadMessage()
-		if err != nil {
-			if strings.Contains(err.Error(), "close 1000") {
-				break
-			}
-		}
-		messages := parseMessages(ircMessages)
-		for _, m := range messages {
+func (c *twitchChatConnection) listen() {
+	messages, err := c.connection.GetMessages()
+	if err != nil {
+		return
+	}
+	for ircBatch := range messages {
+		twitchMessages := c.parseTwitchMessages(ircBatch)
+		for _, m := range twitchMessages {
 			if m.MessageType == Ping {
 				c.send("PONG", m.Params...)
 			} else {
-				c.messages <- m
+				channelName := m.getChannel()
+				if channelMessages, ok := c.messages[channelName]; ok {
+					channelMessages <- m
+				}
 			}
 		}
 	}
-	c.connection = nil
 }
 
-func (c *twitchChatConnection) writeMessages() {
-	for {
-		message := <-c.sendQueue
-		c.connection.WriteMessage(message.messageType, message.message)
-	}
-}
-
-func parseMessages(bytes []byte) []TwitchMessage {
-	messageStrings := strings.Split(string(bytes), "\r\n")
+func (c *twitchChatConnection) parseTwitchMessages(ircBatch chat.WebsocketMessage) []TwitchMessage {
+	messageStrings := strings.Split(string(ircBatch.Bytes), "\r\n")
 	messages := []TwitchMessage{}
 	for _, s := range messageStrings {
 		if s == "" {

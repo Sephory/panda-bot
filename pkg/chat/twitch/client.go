@@ -1,7 +1,6 @@
 package twitch
 
 import (
-	"log"
 
 	"github.com/sephory/panda-bot/pkg/chat"
 )
@@ -26,18 +25,16 @@ func New(config *TwitchClientConfiguration) *TwitchClient {
 		chatConnection:  newTwitchChatConnection(config.Token, config.Username),
 		eventConnection: newTwitchEventConnection(),
 		api:             newTwitchApi(config.ClientId, config.Token),
-		channels:        map[string]*TwitchChatChannel{},
+		channels: make(map[string]*TwitchChatChannel),
 	}
-	go client.listen()
 	return &client
 }
 
 // JoinChannel implements chat.ChatClient
 func (c *TwitchClient) JoinChannel(channelName string) chat.ChatChannel {
-	c.chatConnection.joinChannel(channelName)
 	c.api.subscribe(channelName, c.eventConnection.getSessionId())
 
-	channel := NewTwitchChatChannel(channelName, c.chatConnection)
+	channel := NewTwitchChatChannel(channelName, c.chatConnection, c.eventConnection)
 	c.channels[channelName] = channel
 	return channel
 }
@@ -59,31 +56,4 @@ func (c *TwitchClient) LeaveChannel(channelName string) {
 // GetName implements chat.ChatClient
 func (c *TwitchClient) GetName() string {
 	return "Twitch"
-}
-
-func (c *TwitchClient) listen() {
-	for {
-		select {
-		case m := <-c.chatConnection.messages:
-			event, err := m.toChatEvent()
-			if err != nil {
-				continue
-			}
-			if channel, ok := c.channels[getChannel(m)]; ok {
-				channel.events <- event
-			}
-		case e := <-c.eventConnection.events:
-			log.Println(e)
-		}
-	}
-}
-
-func getChannel(message TwitchMessage) string {
-	switch message.MessageType {
-	case ChatMessage:
-		return message.Params[0][1:]
-	case Join:
-		return message.Params[0][1:]
-	}
-	return ""
 }

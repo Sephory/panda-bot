@@ -2,8 +2,8 @@ package main
 
 import (
 	"io/ioutil"
-	"log"
 
+	"github.com/apex/log"
 	"github.com/sephory/panda-bot/internal/panda"
 	"github.com/sephory/panda-bot/pkg/chat"
 	"github.com/sephory/panda-bot/pkg/chat/twitch"
@@ -18,13 +18,14 @@ type Config struct {
 }
 
 func main() {
+	log.SetLevel(log.DebugLevel)
 	panda, err := InitializePanda()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(err.Error())
 	}
 	err = panda.Start()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(err.Error())
 	}
 }
 

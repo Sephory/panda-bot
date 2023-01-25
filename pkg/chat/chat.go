@@ -1,9 +1,9 @@
 package chat
 
 type ChatClient interface {
+	GetName() string
 	JoinChannel(channelName string) ChatChannel
 	LeaveChannel(channelName string)
-	GetName() string
 }
 
 type ChatChannel interface {

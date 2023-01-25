@@ -1,7 +1,6 @@
 package twitch
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/sephory/panda-bot/pkg/chat"
@@ -77,19 +76,29 @@ func NewChatMessage(messageText string) TwitchMessage {
 	return message
 }
 
-func (m *TwitchMessage) toChatEvent() (interface{}, error) {
+func (m *TwitchMessage) getChannel() string {
+	switch m.MessageType {
+	case ChatMessage:
+		return m.Params[0][1:]
+	case Join:
+		return m.Params[0][1:]
+	}
+	return ""
+}
+
+func (m *TwitchMessage) toChatEvent() interface{} {
 	switch m.MessageType {
 	case ChatMessage:
 		return chat.Message{
-			User:    m.toUserInfo(),
+			User: m.toUserInfo(),
 			Text: m.Params[1],
-		}, nil
+		}
 	case Join:
 		return chat.UserJoin{
 			User: m.toUserInfo(),
-		}, nil
+		}
 	default:
-		return chat.Message{}, errors.New("Can't convert to ChatEvent")
+		return nil
 	}
 }
 
